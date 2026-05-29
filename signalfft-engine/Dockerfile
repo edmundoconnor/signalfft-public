@@ -1,4 +1,4 @@
-FROM python:3.12-slim
+FROM python:3.14-slim
 RUN groupadd -r signalfft && useradd -r -g signalfft signalfft
 WORKDIR /app
 
