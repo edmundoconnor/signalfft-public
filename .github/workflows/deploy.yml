@@ -1,0 +1,116 @@
+name: Deploy
+
+on:
+  push:
+    branches: [main]
+
+concurrency:
+  group: deploy
+  cancel-in-progress: false
+
+env:
+  AWS_REGION: us-east-1
+  ECS_CLUSTER: prod-signalfft
+
+jobs:
+  # ---------------------------------------------------------------------------
+  # Detect which packages changed
+  # ---------------------------------------------------------------------------
+  changes:
+    runs-on: ubuntu-latest
+    outputs:
+      common: ${{ steps.filter.outputs.common }}
+      engine: ${{ steps.filter.outputs.engine }}
+      risk-gateway: ${{ steps.filter.outputs.risk-gateway }}
+      execution: ${{ steps.filter.outputs.execution }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+      - id: filter
+        run: |
+          CHANGED=$(git diff --name-only HEAD~1 HEAD 2>/dev/null || echo "")
+          echo "common=$([[ "$CHANGED" == *signalfft-common/* ]] && echo true || echo false)" >> $GITHUB_OUTPUT
+          echo "engine=$([[ "$CHANGED" == *signalfft-engine/* ]] && echo true || echo false)" >> $GITHUB_OUTPUT
+          echo "risk-gateway=$([[ "$CHANGED" == *signalfft-risk-gateway/* ]] && echo true || echo false)" >> $GITHUB_OUTPUT
+          echo "execution=$([[ "$CHANGED" == *signalfft-execution/* ]] && echo true || echo false)" >> $GITHUB_OUTPUT
+
+  # ---------------------------------------------------------------------------
+  # Build intelligence-pipeline image (from signalfft-engine)
+  # Deploys: intelligence-pipeline, dashboard (shared image)
+  # ---------------------------------------------------------------------------
+  build-engine:
+    needs: changes
+    if: needs.changes.outputs.engine == 'true' || needs.changes.outputs.common == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_DEPLOY_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+      - uses: aws-actions/amazon-ecr-login@v2
+        id: ecr
+      - name: Build common wheel
+        run: |
+          pip install build
+          cd signalfft-common && python -m build
+      - name: Build and push intelligence-pipeline image
+        run: |
+          cd signalfft-engine
+          cp ../signalfft-common/dist/*.whl .
+          ECR_REPO="${{ steps.ecr.outputs.registry }}/prod-signalfft-intelligence-pipeline"
+          docker build -t ${ECR_REPO}:latest -t ${ECR_REPO}:${{ github.sha }} .
+          docker push ${ECR_REPO} --all-tags
+      - name: Deploy to ECS
+        run: |
+          aws ecs update-service --cluster $ECS_CLUSTER --service prod-signalfft-intelligence-pipeline --force-new-deployment --no-cli-pager
+          aws ecs update-service --cluster $ECS_CLUSTER --service prod-signalfft-dashboard --force-new-deployment --no-cli-pager
+
+  # ---------------------------------------------------------------------------
+  # Build risk-gateway + decision-execution images (from signalfft-risk-gateway)
+  # decision-execution also includes signalfft-execution wheel
+  # Deploys: risk-gateway, decision-execution, execution-router (shared image)
+  # ---------------------------------------------------------------------------
+  build-risk-gateway:
+    needs: changes
+    if: needs.changes.outputs.risk-gateway == 'true' || needs.changes.outputs.execution == 'true' || needs.changes.outputs.common == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_DEPLOY_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+      - uses: aws-actions/amazon-ecr-login@v2
+        id: ecr
+      - name: Build dependency wheels
+        run: |
+          pip install build
+          cd signalfft-common && python -m build && cd ..
+          cd signalfft-execution && python -m build && cd ..
+      - name: Build and push risk-gateway image
+        run: |
+          cd signalfft-risk-gateway
+          cp ../signalfft-common/dist/*.whl .
+          ECR_REPO="${{ steps.ecr.outputs.registry }}/prod-signalfft-risk-gateway"
+          docker build -t ${ECR_REPO}:latest -t ${ECR_REPO}:${{ github.sha }} .
+          docker push ${ECR_REPO} --all-tags
+      - name: Build and push decision-execution image
+        run: |
+          cd signalfft-risk-gateway
+          cp ../signalfft-execution/dist/*.whl .
+          ECR_REPO="${{ steps.ecr.outputs.registry }}/prod-signalfft-decision-execution"
+          docker build -t ${ECR_REPO}:latest -t ${ECR_REPO}:${{ github.sha }} .
+          docker push ${ECR_REPO} --all-tags
+      - name: Deploy to ECS
+        run: |
+          aws ecs update-service --cluster $ECS_CLUSTER --service prod-signalfft-risk-gateway --force-new-deployment --no-cli-pager
+          aws ecs update-service --cluster $ECS_CLUSTER --service prod-signalfft-decision-execution --force-new-deployment --no-cli-pager
+          aws ecs update-service --cluster $ECS_CLUSTER --service prod-signalfft-execution-router --force-new-deployment --no-cli-pager

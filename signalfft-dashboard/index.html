@@ -1,0 +1,339 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>SignalFFT Dashboard</title>
+  <link rel="stylesheet" href="/src/style.css" />
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='4' fill='%230f172a'/><path d='M6 22 L10 14 L14 18 L18 8 L22 16 L26 10' stroke='%2338bdf8' stroke-width='2.5' fill='none' stroke-linecap='round' stroke-linejoin='round'/></svg>" />
+</head>
+<body>
+  <div id="app">
+    <!-- Login Screen -->
+    <div id="login-screen" class="screen">
+      <div class="login-card">
+        <div class="login-logo">
+          <svg viewBox="0 0 48 48" width="48" height="48">
+            <rect width="48" height="48" rx="8" fill="var(--surface-2)" />
+            <path d="M8 34 L14 22 L20 28 L26 12 L32 24 L38 16" stroke="var(--accent)" stroke-width="3" fill="none" stroke-linecap="round" stroke-linejoin="round" />
+          </svg>
+          <h1>SignalFFT</h1>
+        </div>
+        <p class="login-subtitle">Signal Intelligence Dashboard</p>
+        <form id="login-form">
+          <input type="email" id="email" placeholder="Email" required autocomplete="email" />
+          <input type="password" id="password" placeholder="Password" required autocomplete="current-password" />
+          <div id="new-password-group" style="display:none">
+            <input type="password" id="new-password" placeholder="New Password" autocomplete="new-password" />
+          </div>
+          <button type="submit" id="login-btn">Sign In</button>
+          <p id="login-error" class="error"></p>
+        </form>
+      </div>
+    </div>
+
+    <!-- Dashboard Screen -->
+    <div id="dashboard-screen" class="screen" style="display:none">
+
+      <!-- Top Bar -->
+      <header class="topbar">
+        <div class="topbar-left">
+          <svg viewBox="0 0 48 48" width="28" height="28">
+            <rect width="48" height="48" rx="8" fill="var(--surface-2)" />
+            <path d="M8 34 L14 22 L20 28 L26 12 L32 24 L38 16" stroke="var(--accent)" stroke-width="3" fill="none" stroke-linecap="round" stroke-linejoin="round" />
+          </svg>
+          <span class="topbar-title">SignalFFT</span>
+          <span class="env-badge" id="env-badge">dev</span>
+        </div>
+        <div class="topbar-right">
+          <span class="connection-dot" id="connection-dot" title="Connection status"></span>
+          <label class="auto-refresh-toggle">
+            <input type="checkbox" id="auto-refresh" checked />
+            <span>Auto-refresh</span>
+          </label>
+          <span id="last-updated" class="last-updated"></span>
+          <button id="logout-btn" class="btn-ghost">Sign Out</button>
+        </div>
+      </header>
+
+      <main class="dashboard-main">
+
+        <!-- Pipeline Flow Visualization -->
+        <section class="section" id="pipeline-section">
+          <div class="section-header">
+            <h2>Pipeline Flow</h2>
+            <span class="section-badge" id="pipeline-status-badge">Healthy</span>
+          </div>
+          <div class="pipeline-flow" id="pipeline-flow">
+            <!-- Rendered by JS -->
+          </div>
+        </section>
+
+        <!-- Key Metrics Strip -->
+        <section class="metrics-strip" id="metrics-strip">
+          <!-- Rendered by JS -->
+        </section>
+
+        <!-- Main Grid: Signals + Waves -->
+        <div class="dashboard-grid-2">
+
+          <!-- Recent Signals -->
+          <section class="section card">
+            <div class="section-header">
+              <h2>Recent Signals</h2>
+              <span class="item-count" id="signals-count">0</span>
+            </div>
+            <div class="table-wrap">
+              <table class="data-table" id="signals-table">
+                <thead>
+                  <tr>
+                    <th>Entity</th>
+                    <th>Score</th>
+                    <th>Direction</th>
+                    <th class="col-components">Components</th>
+                    <th>Time</th>
+                  </tr>
+                </thead>
+                <tbody id="signals-tbody">
+                  <tr class="empty-row"><td colspan="5">Loading...</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </section>
+
+          <!-- Active Waves -->
+          <section class="section card">
+            <div class="section-header">
+              <h2>Active Waves</h2>
+              <span class="item-count" id="waves-count">0</span>
+            </div>
+            <div class="table-wrap">
+              <table class="data-table" id="waves-table">
+                <thead>
+                  <tr>
+                    <th>Entity</th>
+                    <th>Strength</th>
+                    <th>Signals</th>
+                    <th>Window End</th>
+                  </tr>
+                </thead>
+                <tbody id="waves-tbody">
+                  <tr class="empty-row"><td colspan="4">Loading...</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </section>
+        </div>
+
+        <!-- Narratives + Trade Activity -->
+        <div class="dashboard-grid-2">
+
+          <!-- Narrative Tracker -->
+          <section class="section card">
+            <div class="section-header">
+              <h2>Narrative Tracker</h2>
+              <span class="item-count" id="narratives-count">0</span>
+            </div>
+            <div id="narratives-panel" class="narratives-panel">
+              <p class="empty-state">Loading...</p>
+            </div>
+          </section>
+
+          <!-- Trade Candidates -->
+          <section class="section card">
+            <div class="section-header">
+              <h2>Trade Activity</h2>
+              <span class="item-count" id="candidates-count">0</span>
+            </div>
+            <div class="table-wrap">
+              <table class="data-table" id="candidates-table">
+                <thead>
+                  <tr>
+                    <th>Entity</th>
+                    <th>Score</th>
+                    <th>Risk Status</th>
+                    <th>Time</th>
+                  </tr>
+                </thead>
+                <tbody id="candidates-tbody">
+                  <tr class="empty-row"><td colspan="4">Loading...</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </section>
+        </div>
+
+        <!-- Attention Field + Queue Health -->
+        <div class="dashboard-grid-2">
+
+          <!-- Attention Field -->
+          <section class="section card">
+            <div class="section-header">
+              <h2>Attention Field</h2>
+            </div>
+            <div id="attention-panel" class="attention-panel">
+              <p class="empty-state">Loading...</p>
+            </div>
+          </section>
+
+          <!-- Queue Health -->
+          <section class="section card">
+            <div class="section-header">
+              <h2>Queue Health</h2>
+            </div>
+            <div id="queues-panel" class="queues-panel">
+              <p class="empty-state">Loading...</p>
+            </div>
+          </section>
+        </div>
+
+        <!-- Quiet Filing Alerts + Outcome Tracker -->
+        <div class="dashboard-grid-2">
+
+          <!-- Quiet Filing Alerts -->
+          <section class="section card">
+            <div class="section-header">
+              <h2>Quiet Filing Alerts</h2>
+              <span class="item-count" id="triage-count">0</span>
+            </div>
+            <div class="table-wrap">
+              <table class="data-table" id="triage-table">
+                <thead>
+                  <tr>
+                    <th>Entity</th>
+                    <th>Form</th>
+                    <th>Materiality</th>
+                    <th>Attention</th>
+                    <th>Direction</th>
+                    <th>Urgency</th>
+                    <th>Time</th>
+                  </tr>
+                </thead>
+                <tbody id="triage-tbody">
+                  <tr class="empty-row"><td colspan="7">Loading...</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </section>
+
+          <!-- Outcome Tracker -->
+          <section class="section card">
+            <div class="section-header">
+              <h2>Outcome Tracker</h2>
+              <span class="item-count" id="outcomes-count">0</span>
+            </div>
+            <div id="outcomes-summary" class="outcomes-summary"></div>
+            <div class="table-wrap">
+              <table class="data-table" id="outcomes-table">
+                <thead>
+                  <tr>
+                    <th>Entity</th>
+                    <th>Score</th>
+                    <th>Direction</th>
+                    <th>Price</th>
+                    <th>Δ T+1d</th>
+                    <th>Δ T+5d</th>
+                    <th>Spread</th>
+                    <th>ADDV</th>
+                  </tr>
+                </thead>
+                <tbody id="outcomes-tbody">
+                  <tr class="empty-row"><td colspan="8">Loading...</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </section>
+        </div>
+
+        <!-- Semantic Deltas + Shadow Score Comparison -->
+        <div class="dashboard-grid-2">
+
+          <!-- Semantic Deltas -->
+          <section class="section card">
+            <div class="section-header">
+              <h2>Semantic Deltas</h2>
+              <span class="item-count" id="deltas-count">0</span>
+            </div>
+            <div class="table-wrap">
+              <table class="data-table" id="deltas-table">
+                <thead>
+                  <tr>
+                    <th>Entity</th>
+                    <th>Form</th>
+                    <th>Section</th>
+                    <th>Shifts</th>
+                    <th>Severity</th>
+                    <th>Tone</th>
+                    <th>Direction</th>
+                    <th>Impact</th>
+                  </tr>
+                </thead>
+                <tbody id="deltas-tbody">
+                  <tr class="empty-row"><td colspan="8">Loading...</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </section>
+
+          <!-- Shadow Scores -->
+          <section class="section card">
+            <div class="section-header">
+              <h2>Shadow Scores</h2>
+              <span class="item-count" id="shadows-count">0</span>
+            </div>
+            <div class="table-wrap">
+              <table class="data-table" id="shadows-table">
+                <thead>
+                  <tr>
+                    <th>Entity</th>
+                    <th>Live Score</th>
+                    <th>Shadow Score</th>
+                    <th>Δ Score</th>
+                    <th>Direction</th>
+                    <th>Edges</th>
+                  </tr>
+                </thead>
+                <tbody id="shadows-tbody">
+                  <tr class="empty-row"><td colspan="6">Loading...</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </section>
+        </div>
+
+        <!-- Filing Pipeline -->
+        <div class="dashboard-grid-2">
+
+          <section class="section card">
+            <div class="section-header">
+              <h2>Filing Pipeline</h2>
+              <span class="item-count" id="filing-count">0</span>
+            </div>
+            <div id="filing-summary" class="filing-summary"></div>
+            <div class="table-wrap">
+              <table class="data-table" id="filing-table">
+                <thead>
+                  <tr>
+                    <th>Entity</th>
+                    <th>Form Type</th>
+                    <th>Current Date</th>
+                    <th>Previous Date</th>
+                    <th>Sections</th>
+                  </tr>
+                </thead>
+                <tbody id="filing-tbody">
+                  <tr class="empty-row"><td colspan="5">Loading...</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </section>
+
+          <div></div>
+        </div>
+
+      </main>
+    </div>
+  </div>
+  <script type="module" src="/src/main.js"></script>
+</body>
+</html>

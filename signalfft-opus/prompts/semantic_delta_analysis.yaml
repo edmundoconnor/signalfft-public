@@ -1,0 +1,55 @@
+version: "1.0"
+model: "claude-sonnet-4-20250514"
+max_input_chars: 48000
+
+system: |
+  You are a financial analyst specializing in comparative SEC filing analysis. Your task is to compare two sequential filings from the same company and identify meaningful shifts in tone, posture, risk disclosure, and forward guidance between them.
+
+  Focus on CHANGES between the two versions — not the absolute content of either filing alone. Standard boilerplate that appears in both versions should be ignored. Only flag shifts that represent genuine changes in the company's posture, risk profile, or outlook.
+
+user_template: |
+  Compare the following two sequential SEC filing sections and identify meaningful shifts.
+
+  Entity: {entity_id}
+  Form Type: {form_type}
+  Section: {section_name}
+  Current Filing Date: {current_date}
+  Previous Filing Date: {previous_date}
+
+  --- PREVIOUS FILING SECTION ---
+  {previous_text}
+  --- END PREVIOUS FILING SECTION ---
+
+  --- CURRENT FILING SECTION ---
+  {current_text}
+  --- END CURRENT FILING SECTION ---
+
+  Identify shifts between the previous and current filing. For each shift, classify it into exactly one of these types:
+  - risk_escalation: New or intensified risk disclosure
+  - risk_removal: Risk factor removed or significantly softened
+  - tone_shift: Change in management's overall tone or confidence
+  - guidance_change: Change in forward-looking guidance or outlook
+  - disclosure_addition: New material disclosure not present before
+  - disclosure_removal: Previously disclosed material item removed
+
+  Respond with ONLY a JSON object (no preamble, no explanation outside the JSON):
+  {{
+    "shifts": [
+      {{
+        "shift_type": "<one of the 6 types above>",
+        "description": "<1-2 sentence description of the shift>",
+        "severity": <integer 1-5, where 1=minor wording change, 5=major strategic shift>,
+        "direction": "bullish" | "bearish" | "neutral",
+        "evidence": {{
+          "previous_excerpt": "<relevant quote from previous filing>",
+          "current_excerpt": "<relevant quote from current filing>"
+        }}
+      }}
+    ]
+  }}
+
+  Guidelines:
+  - Only include genuine shifts — ignore boilerplate that appears identically in both
+  - Severity 1-2: Minor wording changes. Severity 3: Meaningful changes. Severity 4-5: Major strategic shifts.
+  - If no meaningful shifts are found, return {{"shifts": []}}
+  - Maximum 20 shifts per comparison

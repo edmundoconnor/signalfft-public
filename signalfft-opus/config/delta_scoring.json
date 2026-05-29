@@ -1,0 +1,34 @@
+{
+  "shift_type_base_scores": {
+    "risk_escalation": 0.8,
+    "risk_removal": 0.6,
+    "tone_shift": 0.7,
+    "guidance_change": 0.9,
+    "disclosure_addition": 0.75,
+    "disclosure_removal": 0.7
+  },
+  "direction_multipliers": {
+    "bullish": 1.0,
+    "bearish": -1.0,
+    "neutral": 0.0
+  },
+  "severity_weights": {
+    "1": 0.2,
+    "2": 0.4,
+    "3": 0.6,
+    "4": 0.8,
+    "5": 1.0
+  },
+  "section_weights": {
+    "item_7": 1.0,
+    "item_1a": 0.8,
+    "part1_item2": 1.0,
+    "part2_item1a": 0.8,
+    "default": 0.5
+  },
+  "aggregation": {
+    "method": "max_plus_diminishing",
+    "diminishing_factor": 0.3,
+    "max_composite_score": 1.0
+  }
+}

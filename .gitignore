@@ -1,0 +1,31 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.hypothesis/
+
+# Build artifacts
+*.zip
+*.whl
+package/
+dist/
+node_modules/
+package-lock.json
+.terraform/
+*.tfplan
+.terraform.lock.hcl
+.env
+.env.*
+!.env.example
+*.tfstate
+*.tfstate.*
+*.pem
+*.key
+*.p12
+*.pfx
+credentials
+credentials.json
+secrets.*
+
+# Accidental copies
+signalfft-risk-gateway/src/execution/

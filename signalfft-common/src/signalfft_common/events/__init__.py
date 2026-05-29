@@ -1,0 +1,41 @@
+"""Event schemas for inter-service messaging."""
+
+from signalfft_common.events.schemas import (
+    AttentionFieldUpdated,
+    BaseEvent,
+    DeltaAnalysisComplete,
+    EVENT_TYPE_REGISTRY,
+    FeatureExtracted,
+    FilingChainReady,
+    FilingDocumentReady,
+    FilingDocumentRequested,
+    FilingPairReady,
+    FilingSectionsReady,
+    HighPriorityFiling,
+    NarrativeUpdated,
+    TriageComplete,
+    RawEventCollected,
+    SignalScored,
+    TradeCandidateGenerated,
+    WaveComputed,
+)
+
+__all__ = [
+    "BaseEvent",
+    "RawEventCollected",
+    "FeatureExtracted",
+    "SignalScored",
+    "WaveComputed",
+    "NarrativeUpdated",
+    "AttentionFieldUpdated",
+    "TradeCandidateGenerated",
+    "FilingDocumentRequested",
+    "FilingDocumentReady",
+    "FilingSectionsReady",
+    "FilingPairReady",
+    "FilingChainReady",
+    "HighPriorityFiling",
+    "TriageComplete",
+    "DeltaAnalysisComplete",
+    "EVENT_TYPE_REGISTRY",
+]

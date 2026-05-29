@@ -1,0 +1,31 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "signalfft-risk-gateway"
+version = "0.1.0"
+description = "Deterministic risk rule engine that gates trade candidates"
+requires-python = ">=3.11"
+dependencies = [
+    "signalfft-common>=0.1.0",
+    "boto3>=1.34",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0",
+    "pytest-cov>=4.0",
+    "moto[dynamodb,s3,sqs]>=5.0",
+    "ruff>=0.3",
+]
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/risk_gateway"]
+
+[tool.ruff]
+target-version = "py312"
+line-length = 120
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

@@ -1,0 +1,1 @@
+"""SignalFFT configuration constants."""
