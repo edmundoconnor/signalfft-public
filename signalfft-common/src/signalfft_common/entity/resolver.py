@@ -25,7 +25,7 @@ import requests
 logger = logging.getLogger(__name__)
 
 SEC_TICKERS_URL = "https://www.sec.gov/files/company_tickers.json"
-SEC_USER_AGENT = "SignalFFT/1.0 (ed@signalfft.com)"
+SEC_USER_AGENT = "SignalFFT/1.0 (contact@example.com)"
 
 CACHE_BUCKET = os.environ.get("ARTIFACTS_BUCKET", os.environ.get("ARTIFACT_BUCKET", ""))
 CACHE_KEY = "config/cik_ticker_mapping.json"

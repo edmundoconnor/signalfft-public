@@ -3,6 +3,7 @@ __pycache__/
 *.pyc
 *.pyo
 .hypothesis/
+.pytest_cache/
 
 # Build artifacts
 *.zip
