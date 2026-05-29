@@ -26,6 +26,29 @@ CACHE_TTL = 15  # seconds
 EXTENDED_CACHE_TTL = 60  # seconds, for expensive aggregate counts
 
 
+def _parse_allowed_origins(raw_origins: str) -> dict[str, str]:
+    """Return safe CORS origins keyed for exact request-origin lookup."""
+    allowed_origins: dict[str, str] = {}
+    for raw_origin in raw_origins.split(","):
+        origin = raw_origin.strip()
+        if not origin:
+            continue
+        if "\r" in origin or "\n" in origin:
+            logger.warning("Ignoring dashboard CORS origin containing newline characters")
+            continue
+
+        parsed = urlparse(origin)
+        if parsed.scheme not in {"http", "https"} or not parsed.netloc:
+            logger.warning("Ignoring invalid dashboard CORS origin: %s", origin)
+            continue
+        if parsed.path not in {"", "/"} or parsed.params or parsed.query or parsed.fragment:
+            logger.warning("Ignoring dashboard CORS origin with path or query: %s", origin)
+            continue
+
+        allowed_origins[origin] = origin
+    return allowed_origins
+
+
 class DashboardHandler(BaseHTTPRequestHandler):
     """HTTP request handler for the dashboard API."""
 
@@ -72,14 +95,12 @@ class DashboardHandler(BaseHTTPRequestHandler):
             "false",
             "no",
         }
-        allowed_origins = [
-            origin.strip()
-            for origin in os.environ.get(
+        allowed_origins = _parse_allowed_origins(
+            os.environ.get(
                 "DASHBOARD_ALLOWED_ORIGINS",
                 os.environ.get("DASHBOARD_ALLOWED_ORIGIN", ""),
-            ).split(",")
-            if origin.strip()
-        ]
+            )
+        )
         issuer = (
             f"https://cognito-idp.{cognito_region}.amazonaws.com/{user_pool_id}"
             if user_pool_id
@@ -862,9 +883,10 @@ class DashboardHandler(BaseHTTPRequestHandler):
 
     def _send_cors_headers(self) -> None:
         origin = self.headers.get("Origin", "")
-        allowed_origins = self._auth.get("allowed_origins", [])
-        if origin and origin in allowed_origins:
-            self.send_header("Access-Control-Allow-Origin", origin)
+        allowed_origins = self._auth.get("allowed_origins", {})
+        allowed_origin = allowed_origins.get(origin) if origin else None
+        if allowed_origin:
+            self.send_header("Access-Control-Allow-Origin", allowed_origin)
             self.send_header("Vary", "Origin")
 
     def _respond(self, status: int, body: Any) -> None:
