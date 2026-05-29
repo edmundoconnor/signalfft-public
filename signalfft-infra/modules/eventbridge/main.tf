@@ -70,6 +70,16 @@ resource "aws_cloudwatch_event_target" "edgar_collector" {
   arn       = var.edgar_collector_arn
 }
 
+resource "aws_lambda_permission" "edgar_eventbridge" {
+  count = var.edgar_collector_arn != "" ? 1 : 0
+
+  statement_id  = "eventbridge-edgar-${var.environment}"
+  action        = "lambda:InvokeFunction"
+  function_name = var.edgar_collector_arn
+  principal     = "events.amazonaws.com"
+  source_arn    = aws_cloudwatch_event_rule.collector_schedule.arn
+}
+
 # ---------------------------------------------------------------------------
 # Finnhub News schedule (every 5 minutes)
 # ---------------------------------------------------------------------------
@@ -87,9 +97,21 @@ resource "aws_cloudwatch_event_rule" "finnhub_schedule" {
 }
 
 resource "aws_cloudwatch_event_target" "finnhub_collector" {
+  count = var.finnhub_collector_arn != "" ? 1 : 0
+
   rule      = aws_cloudwatch_event_rule.finnhub_schedule.name
   target_id = "finnhub-news-collector"
   arn       = var.finnhub_collector_arn
+}
+
+resource "aws_lambda_permission" "finnhub_eventbridge" {
+  count = var.finnhub_collector_arn != "" ? 1 : 0
+
+  statement_id  = "eventbridge-finnhub-${var.environment}"
+  action        = "lambda:InvokeFunction"
+  function_name = var.finnhub_collector_arn
+  principal     = "events.amazonaws.com"
+  source_arn    = aws_cloudwatch_event_rule.finnhub_schedule.arn
 }
 
 # ---------------------------------------------------------------------------
@@ -109,9 +131,21 @@ resource "aws_cloudwatch_event_rule" "bluesky_schedule" {
 }
 
 resource "aws_cloudwatch_event_target" "bluesky_collector" {
+  count = var.bluesky_collector_arn != "" ? 1 : 0
+
   rule      = aws_cloudwatch_event_rule.bluesky_schedule.name
   target_id = "bluesky-collector"
   arn       = var.bluesky_collector_arn
+}
+
+resource "aws_lambda_permission" "bluesky_eventbridge" {
+  count = var.bluesky_collector_arn != "" ? 1 : 0
+
+  statement_id  = "eventbridge-bluesky-${var.environment}"
+  action        = "lambda:InvokeFunction"
+  function_name = var.bluesky_collector_arn
+  principal     = "events.amazonaws.com"
+  source_arn    = aws_cloudwatch_event_rule.bluesky_schedule.arn
 }
 
 # ---------------------------------------------------------------------------
@@ -131,7 +165,19 @@ resource "aws_cloudwatch_event_rule" "outcome_schedule" {
 }
 
 resource "aws_cloudwatch_event_target" "outcome_collector" {
+  count = var.outcome_collector_arn != "" ? 1 : 0
+
   rule      = aws_cloudwatch_event_rule.outcome_schedule.name
   target_id = "outcome-collector"
   arn       = var.outcome_collector_arn
+}
+
+resource "aws_lambda_permission" "outcome_eventbridge" {
+  count = var.outcome_collector_arn != "" ? 1 : 0
+
+  statement_id  = "eventbridge-outcome-${var.environment}"
+  action        = "lambda:InvokeFunction"
+  function_name = var.outcome_collector_arn
+  principal     = "events.amazonaws.com"
+  source_arn    = aws_cloudwatch_event_rule.outcome_schedule.arn
 }

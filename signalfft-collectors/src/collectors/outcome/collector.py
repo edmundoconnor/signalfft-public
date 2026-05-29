@@ -26,6 +26,7 @@ from alpaca.data.historical import StockHistoricalDataClient
 from alpaca.data.enums import DataFeed
 from alpaca.data.requests import StockBarsRequest
 from alpaca.data.timeframe import TimeFrame
+from signalfft_common.config import get_secret_env
 
 logger = logging.getLogger(__name__)
 
@@ -255,8 +256,8 @@ class OutcomeCollector:
         dynamodb = boto3.resource("dynamodb", region_name=self._region)
         self._table = dynamodb.Table(self._table_name)
 
-        api_key = os.environ.get("ALPACA_API_KEY")
-        secret_key = os.environ.get("ALPACA_SECRET_KEY")
+        api_key = get_secret_env("ALPACA_API_KEY")
+        secret_key = get_secret_env("ALPACA_SECRET_KEY")
         if api_key and secret_key:
             self._data_client = StockHistoricalDataClient(api_key, secret_key)
         else:

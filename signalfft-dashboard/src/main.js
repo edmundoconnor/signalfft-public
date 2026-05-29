@@ -19,6 +19,7 @@ import {
 const CONFIG = {
   cognitoUserPoolId: import.meta.env.VITE_COGNITO_USER_POOL_ID || '',
   cognitoClientId: import.meta.env.VITE_COGNITO_CLIENT_ID || '',
+  authRequired: String(import.meta.env.VITE_AUTH_REQUIRED ?? 'true').toLowerCase() !== 'false',
   refreshIntervalMs: 15_000,   // 15-second auto-refresh
   apiBase: import.meta.env.VITE_API_BASE || '/api',
 };
@@ -59,7 +60,9 @@ let isConnected = true;
 // ---------------------------------------------------------------------------
 
 function initAuth() {
-  if (CONFIG.cognitoUserPoolId && CONFIG.cognitoClientId) {
+  const authConfigured = Boolean(CONFIG.cognitoUserPoolId && CONFIG.cognitoClientId);
+
+  if (authConfigured) {
     userPool = new CognitoUserPool({
       UserPoolId: CONFIG.cognitoUserPoolId,
       ClientId: CONFIG.cognitoClientId,
@@ -76,17 +79,18 @@ function initAuth() {
       return;
     }
   }
-  // If no Cognito config, skip auth for local dev
-  if (!CONFIG.cognitoUserPoolId) {
+  if (!CONFIG.authRequired) {
     showDashboard();
     return;
   }
-  showLogin();
+  showLogin(authConfigured ? '' : 'Dashboard auth is not configured.');
 }
 
-function showLogin() {
+function showLogin(message = '') {
   document.getElementById('login-screen').style.display = '';
   document.getElementById('dashboard-screen').style.display = 'none';
+  const errorEl = document.getElementById('login-error');
+  if (errorEl) errorEl.textContent = message;
   stopAutoRefresh();
 }
 
@@ -105,8 +109,11 @@ function handleLogin(e) {
   errorEl.textContent = '';
 
   if (!userPool) {
-    // No Cognito configured — skip auth
-    showDashboard();
+    if (!CONFIG.authRequired) {
+      showDashboard();
+      return;
+    }
+    errorEl.textContent = 'Dashboard auth is not configured.';
     return;
   }
 
@@ -158,7 +165,15 @@ function handleLogout() {
 
 async function apiFetch(path) {
   try {
-    const resp = await fetch(`${CONFIG.apiBase}${path}`);
+    const headers = {};
+    const token = await getSessionToken();
+    if (token) headers.Authorization = `Bearer ${token}`;
+
+    const resp = await fetch(`${CONFIG.apiBase}${path}`, { headers });
+    if (resp.status === 401 || resp.status === 403) {
+      showLogin('Session expired. Please sign in again.');
+      throw new Error(`HTTP ${resp.status}`);
+    }
     if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
     setConnected(true);
     return await resp.json();
@@ -167,6 +182,22 @@ async function apiFetch(path) {
     console.warn(`API error (${path}):`, err.message);
     return null;
   }
+}
+
+function getSessionToken() {
+  if (!CONFIG.authRequired) return Promise.resolve('');
+  if (!currentUser && userPool) currentUser = userPool.getCurrentUser();
+  if (!currentUser) return Promise.reject(new Error('Not authenticated'));
+
+  return new Promise((resolve, reject) => {
+    currentUser.getSession((err, session) => {
+      if (err || !session || !session.isValid()) {
+        reject(err || new Error('Invalid session'));
+        return;
+      }
+      resolve(session.getIdToken().getJwtToken());
+    });
+  });
 }
 
 function setConnected(connected) {

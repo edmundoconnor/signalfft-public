@@ -3,6 +3,7 @@ __pycache__/
 *.pyc
 *.pyo
 .hypothesis/
+.pytest_cache/
 
 # Build artifacts
 *.zip
@@ -14,6 +15,7 @@ package-lock.json
 .terraform/
 *.tfplan
 .terraform.lock.hcl
+!signalfft-infra/.terraform.lock.hcl
 .env
 .env.*
 !.env.example

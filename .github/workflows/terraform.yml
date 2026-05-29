@@ -1,0 +1,29 @@
+name: Terraform
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    name: Terraform Validate
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: signalfft-infra
+    steps:
+      - uses: actions/checkout@v4
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: 1.15.5
+      - name: Check formatting
+        run: terraform fmt -recursive -check
+      - name: Init without remote backend
+        run: terraform init -backend=false
+      - name: Validate
+        run: terraform validate

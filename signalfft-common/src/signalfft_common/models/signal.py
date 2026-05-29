@@ -16,6 +16,7 @@ class Signal:
     signal_id: str
     entity_id: str
     score: float
+    event_id: str = ""
     components: dict = field(default_factory=dict)
     weight_version: str = ""
     attention_field_version: str = ""

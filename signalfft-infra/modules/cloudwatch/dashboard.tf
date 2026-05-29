@@ -5,8 +5,8 @@
 ###############################################################################
 
 locals {
-  cluster   = var.ecs_cluster_name
-  prefix    = "${var.environment}-signalfft"
+  cluster = var.ecs_cluster_name
+  prefix  = "${var.environment}-signalfft"
 
   ecs_services = [
     "intelligence-pipeline",

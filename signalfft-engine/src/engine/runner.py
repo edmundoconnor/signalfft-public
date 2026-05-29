@@ -9,6 +9,7 @@ import logging
 import threading
 import os
 import json
+import inspect
 
 import boto3
 
@@ -42,8 +43,11 @@ class IntelligencePipelineRunner:
                     messages = response.get('Messages', [])
                     for msg in messages:
                         try:
-                            (service.process_message if hasattr(service, 'process_message') else service._process_message)(msg)
-                            sqs.delete_message(QueueUrl=input_queue_url, ReceiptHandle=msg['ReceiptHandle'])
+                            processed = self._process_message(service, msg)
+                            if processed:
+                                sqs.delete_message(QueueUrl=input_queue_url, ReceiptHandle=msg['ReceiptHandle'])
+                            else:
+                                logger.warning("%s: Message processing returned failure; leaving message for retry", name)
                         except Exception as e:
                             logger.error(f"{name}: Failed to process message: {e}", exc_info=True)
                 except Exception as e:
@@ -51,6 +55,15 @@ class IntelligencePipelineRunner:
                     self._shutdown_event.wait(5)
         except Exception as e:
             logger.error(f"{name}: Fatal error: {e}", exc_info=True)
+
+    def _process_message(self, service, msg: dict) -> bool:
+        processor = service.process_message if hasattr(service, 'process_message') else service._process_message
+        signature = inspect.signature(processor)
+        if 'ack' in signature.parameters:
+            result = processor(msg, ack=False)
+        else:
+            result = processor(msg)
+        return result is not False
 
     def _run_periodic_service(self, name: str, service_factory, interval_seconds: int = 300):
         """Run a service that works on a timer (wave engine periodic recompute, attention field)."""

@@ -51,44 +51,52 @@ class FilingIndexerService:
     # Public interface (called by runner)
     # ------------------------------------------------------------------
 
-    def process_message(self, message: dict) -> None:
+    def process_message(self, message: dict) -> bool:
         """Process a single SQS message containing a FilingSectionsReady event."""
-        event = BaseEvent.from_sqs_message(message["Body"])
-        payload = event.payload
+        try:
+            event = BaseEvent.from_sqs_message(message["Body"])
+            payload = event.payload
 
-        entity_id = payload["entity_id"]
-        cik = payload["cik"]
-        form_type = payload["form_type"]
-        filing_date = payload["filing_date"]
-        section_s3_prefix = payload["section_s3_prefix"]
+            entity_id = payload["entity_id"]
+            cik = payload["cik"]
+            form_type = payload["form_type"]
+            filing_date = payload["filing_date"]
+            section_s3_prefix = payload["section_s3_prefix"]
 
-        # 1. Backfill: fetch filing history from SEC
-        history = fetch_filing_history(cik, form_type, self._user_agent)
+            # 1. Backfill: fetch filing history from SEC
+            history = fetch_filing_history(cik, form_type, self._user_agent)
 
-        # 2. Build pair: find the prior filing of same form_type
-        pair_record = self._build_filing_pair(
-            entity_id, form_type, filing_date, section_s3_prefix, history,
-        )
+            # 2. Build pair: find the prior filing of same form_type
+            pair_record = self._build_filing_pair(
+                entity_id, form_type, filing_date, section_s3_prefix, history,
+            )
 
-        # 3. Build/update chain
-        chain_record = self._build_filing_chain(
-            entity_id, form_type, filing_date, history,
-        )
+            # 3. Build/update chain
+            chain_record = self._build_filing_chain(
+                entity_id, form_type, filing_date, history,
+            )
 
-        # 4. Emit events
-        if pair_record:
-            self._emit_pair_ready(pair_record)
-            self._emit_pair_ready_to_delta(pair_record)
-        self._emit_chain_ready(chain_record)
+            # 4. Emit events
+            if pair_record:
+                self._emit_pair_ready(pair_record)
+                self._emit_pair_ready_to_delta(pair_record)
+            self._emit_chain_ready(chain_record)
 
-        logger.info(
-            "Indexed filing %s/%s/%s: pair=%s, chain_length=%d",
-            entity_id,
-            form_type,
-            filing_date,
-            "yes" if pair_record else "no-prior",
-            chain_record["chain_length"],
-        )
+            logger.info(
+                "Indexed filing %s/%s/%s: pair=%s, chain_length=%d",
+                entity_id,
+                form_type,
+                filing_date,
+                "yes" if pair_record else "no-prior",
+                chain_record["chain_length"],
+            )
+            return True
+        except Exception:
+            logger.exception(
+                "Failed to index filing message %s",
+                message.get("MessageId", "unknown"),
+            )
+            return False
 
     # ------------------------------------------------------------------
     # F1.4 — Pair indexing

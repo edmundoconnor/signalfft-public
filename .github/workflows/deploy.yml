@@ -31,7 +31,7 @@ jobs:
         run: |
           CHANGED=$(git diff --name-only HEAD~1 HEAD 2>/dev/null || echo "")
           echo "common=$([[ "$CHANGED" == *signalfft-common/* ]] && echo true || echo false)" >> $GITHUB_OUTPUT
-          echo "engine=$([[ "$CHANGED" == *signalfft-engine/* ]] && echo true || echo false)" >> $GITHUB_OUTPUT
+          echo "engine=$([[ "$CHANGED" == *signalfft-engine/* || "$CHANGED" == *signalfft-opus/prompts/* || "$CHANGED" == *signalfft-opus/config/* ]] && echo true || echo false)" >> $GITHUB_OUTPUT
           echo "risk-gateway=$([[ "$CHANGED" == *signalfft-risk-gateway/* ]] && echo true || echo false)" >> $GITHUB_OUTPUT
           echo "execution=$([[ "$CHANGED" == *signalfft-execution/* ]] && echo true || echo false)" >> $GITHUB_OUTPUT
 
@@ -62,6 +62,8 @@ jobs:
         run: |
           cd signalfft-engine
           cp ../signalfft-common/dist/*.whl .
+          cp -r ../signalfft-opus/prompts ./prompts
+          cp -r ../signalfft-opus/config ./config
           ECR_REPO="${{ steps.ecr.outputs.registry }}/prod-signalfft-intelligence-pipeline"
           docker build -t ${ECR_REPO}:latest -t ${ECR_REPO}:${{ github.sha }} .
           docker push ${ECR_REPO} --all-tags

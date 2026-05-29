@@ -88,7 +88,7 @@ class QuietFilingTriageService:
         self._bucket = os.environ.get("ARTIFACTS_BUCKET", f"{self._env}-signalfft-artifacts")
         self._boost_multiplier = float(os.environ.get("TRIAGE_BOOST_MULTIPLIER", "1.5"))
 
-    def process_message(self, message: dict) -> None:
+    def process_message(self, message: dict) -> bool:
         """Process a single SQS message containing a FilingSectionsReady event."""
         try:
             event = BaseEvent.from_sqs_message(message["Body"])
@@ -109,7 +109,7 @@ class QuietFilingTriageService:
                     "Triage already cached for %s/%s/%s — skipping",
                     entity_id, form_type, filing_date,
                 )
-                return
+                return True
 
             # 2. Load filing text from S3
             text = self._load_section_text(section_s3_prefix, sections_available)
@@ -118,7 +118,7 @@ class QuietFilingTriageService:
                     "No section text found for %s/%s/%s — skipping triage",
                     entity_id, form_type, filing_date,
                 )
-                return
+                return True
 
             # 3. Enrich filing context (timing metadata)
             context = enrich_filing_context(filing_date, None, form_type)
@@ -156,12 +156,14 @@ class QuietFilingTriageService:
                 assessment.is_quiet_filing,
                 assessment.boost_multiplier,
             )
+            return True
 
         except Exception:
             logger.exception(
                 "Failed to triage message %s",
                 message.get("MessageId", "unknown"),
             )
+            return False
 
     def _load_section_text(
         self,

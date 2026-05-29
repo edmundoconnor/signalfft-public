@@ -70,7 +70,7 @@ class SectionExtractorService:
         )
         return response.get("Messages", [])
 
-    def process_message(self, message: dict) -> None:
+    def process_message(self, message: dict, ack: bool = True) -> bool:
         """Process a single SQS message containing a FilingDocumentReady event."""
         receipt_handle = message["ReceiptHandle"]
         try:
@@ -89,22 +89,24 @@ class SectionExtractorService:
 
             if not html_content.strip():
                 logger.warning("Empty filing content for event %s", event_id)
-                self._sqs.delete_message(
-                    QueueUrl=self.input_queue_url,
-                    ReceiptHandle=receipt_handle,
-                )
-                return
+                if ack:
+                    self._sqs.delete_message(
+                        QueueUrl=self.input_queue_url,
+                        ReceiptHandle=receipt_handle,
+                    )
+                return True
 
             # 2. Extract sections (pure function)
             sections = extract_sections(html_content, form_type)
 
             if not sections:
                 logger.warning("No sections extracted for event %s", event_id)
-                self._sqs.delete_message(
-                    QueueUrl=self.input_queue_url,
-                    ReceiptHandle=receipt_handle,
-                )
-                return
+                if ack:
+                    self._sqs.delete_message(
+                        QueueUrl=self.input_queue_url,
+                        ReceiptHandle=receipt_handle,
+                    )
+                return True
 
             # 3. Store sections to S3
             section_prefix = f"filings/{cik}/{form_type}/{filing_date}/sections"
@@ -161,11 +163,11 @@ class SectionExtractorService:
                 total_text_length=total_text_length,
             )
 
-            # 6. Delete message from queue
-            self._sqs.delete_message(
-                QueueUrl=self.input_queue_url,
-                ReceiptHandle=receipt_handle,
-            )
+            if ack:
+                self._sqs.delete_message(
+                    QueueUrl=self.input_queue_url,
+                    ReceiptHandle=receipt_handle,
+                )
 
             logger.info(
                 "Processed filing %s: %d sections extracted (%d chars total)",
@@ -173,12 +175,14 @@ class SectionExtractorService:
                 len(sections),
                 total_text_length,
             )
+            return True
 
         except Exception:
             logger.exception(
                 "Failed to process message %s",
                 message.get("MessageId", "unknown"),
             )
+            return False
 
     def _fetch_filing(self, s3_uri: str) -> str:
         """Fetch raw HTML from S3."""

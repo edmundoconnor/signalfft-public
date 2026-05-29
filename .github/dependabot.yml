@@ -1,0 +1,76 @@
+version: 2
+
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    groups:
+      actions:
+        patterns: ["*"]
+
+  - package-ecosystem: pip
+    directory: /signalfft-common
+    schedule:
+      interval: weekly
+    groups:
+      python-common:
+        patterns: ["*"]
+
+  - package-ecosystem: pip
+    directory: /signalfft-collectors
+    schedule:
+      interval: weekly
+    groups:
+      python-collectors:
+        patterns: ["*"]
+
+  - package-ecosystem: pip
+    directory: /signalfft-engine
+    schedule:
+      interval: weekly
+    groups:
+      python-engine:
+        patterns: ["*"]
+
+  - package-ecosystem: pip
+    directory: /signalfft-risk-gateway
+    schedule:
+      interval: weekly
+    groups:
+      python-risk-gateway:
+        patterns: ["*"]
+
+  - package-ecosystem: pip
+    directory: /signalfft-execution
+    schedule:
+      interval: weekly
+    groups:
+      python-execution:
+        patterns: ["*"]
+
+  - package-ecosystem: npm
+    directory: /signalfft-dashboard
+    schedule:
+      interval: weekly
+    groups:
+      dashboard:
+        patterns: ["*"]
+
+  - package-ecosystem: terraform
+    directory: /signalfft-infra
+    schedule:
+      interval: weekly
+    groups:
+      terraform:
+        patterns: ["*"]
+
+  - package-ecosystem: docker
+    directory: /signalfft-engine
+    schedule:
+      interval: weekly
+
+  - package-ecosystem: docker
+    directory: /signalfft-risk-gateway
+    schedule:
+      interval: weekly

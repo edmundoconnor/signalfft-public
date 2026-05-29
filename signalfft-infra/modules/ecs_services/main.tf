@@ -59,6 +59,26 @@ variable "dashboard_target_group_arn" {
   type = string
 }
 
+variable "dashboard_cognito_user_pool_id" {
+  type    = string
+  default = ""
+}
+
+variable "dashboard_cognito_client_id" {
+  type    = string
+  default = ""
+}
+
+variable "dashboard_allowed_origins" {
+  type    = list(string)
+  default = []
+}
+
+variable "dashboard_auth_required" {
+  type    = bool
+  default = true
+}
+
 # ECS Task Execution Role (for pulling images from ECR and writing logs)
 data "aws_iam_policy_document" "ecs_execution_trust" {
   statement {
@@ -84,21 +104,6 @@ resource "aws_iam_role" "ecs_execution" {
 resource "aws_iam_role_policy_attachment" "ecs_execution" {
   role       = aws_iam_role.ecs_execution.name
   policy_arn = "arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy"
-}
-
-# ---------------------------------------------------------------------------
-# Alpaca paper trading keys from SSM
-# ---------------------------------------------------------------------------
-data "aws_ssm_parameter" "alpaca_api_key" {
-  name = "/signalfft/${var.environment}/alpaca-api-key"
-}
-
-data "aws_ssm_parameter" "alpaca_secret_key" {
-  name = "/signalfft/${var.environment}/alpaca-secret-key"
-}
-
-data "aws_ssm_parameter" "anthropic_api_key" {
-  name = "/signalfft/${var.environment}/anthropic-api-key"
 }
 
 # ---------------------------------------------------------------------------
@@ -140,12 +145,33 @@ locals {
     "dashboard"             = "${var.ecr_repository_urls["intelligence-pipeline"]}:latest"
   }
 
-  # Alpaca paper trading credentials from SSM
+  ssm_parameter_arns = {
+    alpaca_api_key    = "arn:aws:ssm:${var.aws_region}:${var.account_id}:parameter/signalfft/${var.environment}/alpaca-api-key"
+    alpaca_secret_key = "arn:aws:ssm:${var.aws_region}:${var.account_id}:parameter/signalfft/${var.environment}/alpaca-secret-key"
+    anthropic_api_key = "arn:aws:ssm:${var.aws_region}:${var.account_id}:parameter/signalfft/${var.environment}/anthropic-api-key"
+  }
+
+  # Non-secret Alpaca trading settings
   alpaca_env = [
-    { name = "ALPACA_API_KEY", value = data.aws_ssm_parameter.alpaca_api_key.value },
-    { name = "ALPACA_SECRET_KEY", value = data.aws_ssm_parameter.alpaca_secret_key.value },
     { name = "ALPACA_NOTIONAL", value = "2000" },
   ]
+
+  alpaca_secrets = [
+    { name = "ALPACA_API_KEY", valueFrom = local.ssm_parameter_arns.alpaca_api_key },
+    { name = "ALPACA_SECRET_KEY", valueFrom = local.ssm_parameter_arns.alpaca_secret_key },
+  ]
+
+  anthropic_secrets = [
+    { name = "ANTHROPIC_API_KEY", valueFrom = local.ssm_parameter_arns.anthropic_api_key },
+  ]
+
+  service_secrets = {
+    "intelligence-pipeline" = concat(local.alpaca_secrets, local.anthropic_secrets)
+    "decision-execution"    = local.alpaca_secrets
+    "execution-router"      = local.alpaca_secrets
+    "risk-gateway"          = []
+    "dashboard"             = []
+  }
 
   # Common environment variables for all services
   common_env = [
@@ -189,7 +215,6 @@ locals {
       # Edge 1: Quiet Filing Triage
       { name = "TRIAGE_INPUT_QUEUE_URL", value = var.queue_urls["triage-input"] },
       { name = "SHADOW_SCORES_TABLE", value = var.table_names["shadow_scores"] },
-      { name = "ANTHROPIC_API_KEY", value = data.aws_ssm_parameter.anthropic_api_key.value },
       { name = "TRIAGE_PROMPT_PATH", value = "/app/prompts/quiet_filing_triage.yaml" },
       { name = "PROMPT_TEMPLATE_PATH", value = "/app/prompts/directional_interpretation.yaml" },
       # Edge 2: Semantic Delta Analysis
@@ -232,8 +257,32 @@ locals {
       { name = "TRADE_CANDIDATES_TABLE", value = var.table_names["trade_candidates"] },
       { name = "ENTITIES_TABLE", value = var.table_names["entities"] },
       { name = "GRAPH_EDGES_TABLE", value = var.table_names["graph_edges"] },
+      { name = "COGNITO_USER_POOL_ID", value = var.dashboard_cognito_user_pool_id },
+      { name = "COGNITO_CLIENT_ID", value = var.dashboard_cognito_client_id },
+      { name = "DASHBOARD_ALLOWED_ORIGINS", value = join(",", var.dashboard_allowed_origins) },
+      { name = "DASHBOARD_AUTH_REQUIRED", value = tostring(var.dashboard_auth_required) },
     ]
   }
+}
+
+data "aws_iam_policy_document" "ecs_execution_secrets" {
+  statement {
+    effect    = "Allow"
+    actions   = ["ssm:GetParameters"]
+    resources = values(local.ssm_parameter_arns)
+  }
+
+  statement {
+    effect    = "Allow"
+    actions   = ["kms:Decrypt"]
+    resources = ["*"]
+  }
+}
+
+resource "aws_iam_role_policy" "ecs_execution_secrets" {
+  name   = "${var.environment}-signalfft-ecs-execution-secrets"
+  role   = aws_iam_role.ecs_execution.id
+  policy = data.aws_iam_policy_document.ecs_execution_secrets.json
 }
 
 # CloudWatch log groups
@@ -273,6 +322,7 @@ resource "aws_ecs_task_definition" "services" {
     }] : []
 
     environment = concat(local.common_env, local.service_env[each.value])
+    secrets     = lookup(local.service_secrets, each.value, [])
 
     logConfiguration = {
       logDriver = "awslogs"

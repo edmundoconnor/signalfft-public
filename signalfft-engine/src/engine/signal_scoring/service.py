@@ -90,7 +90,7 @@ class SignalScoringService:
         )
         return response.get("Messages", [])
 
-    def process_message(self, message: dict) -> None:
+    def process_message(self, message: dict, ack: bool = True) -> bool:
         receipt_handle = message["ReceiptHandle"]
         try:
             event = BaseEvent.from_sqs_message(message["Body"])
@@ -99,6 +99,19 @@ class SignalScoringService:
             feature_id = payload["feature_id"]
             event_id = payload["event_id"]
             entity_id = payload["entity_id"]
+
+            if self._signal_exists(event_id, entity_id):
+                if ack:
+                    self._sqs.delete_message(
+                        QueueUrl=self.input_queue_url,
+                        ReceiptHandle=receipt_handle,
+                    )
+                logger.info(
+                    "Signal already exists for event %s from feature %s; skipping duplicate",
+                    event_id,
+                    feature_id,
+                )
+                return True
 
             # Build components from feature data
             components, lexicon_polarity = self._build_components(event_id, entity_id)
@@ -110,12 +123,13 @@ class SignalScoringService:
             direction_score = compute_direction_score(lexicon_polarity, None, None)
 
             # Create signal record
-            signal_id = str(uuid.uuid4())
+            signal_id = str(uuid.uuid5(uuid.NAMESPACE_URL, f"signalfft:{entity_id}:{event_id}"))
             now = datetime.now(timezone.utc).isoformat()
             signal = Signal(
                 signal_id=signal_id,
                 entity_id=entity_id,
                 score=score,
+                event_id=event_id,
                 components=components,
                 weight_version="default",
                 attention_field_version="v1",
@@ -141,16 +155,18 @@ class SignalScoringService:
                 except Exception:
                     logger.exception("Graph write failed for signal %s", signal.signal_id)
 
-            # Ack message
-            self._sqs.delete_message(
-                QueueUrl=self.input_queue_url,
-                ReceiptHandle=receipt_handle,
-            )
+            if ack:
+                self._sqs.delete_message(
+                    QueueUrl=self.input_queue_url,
+                    ReceiptHandle=receipt_handle,
+                )
 
             logger.info("Scored signal %s: %.4f", signal_id, score)
+            return True
 
         except Exception:
             logger.exception("Failed to process message %s", message.get("MessageId"))
+            return False
 
     def _build_components(self, event_id: str, entity_id: str = "") -> tuple[dict[str, float], float]:
         """Fetch features for event and map to scorer component format.
@@ -312,12 +328,25 @@ class SignalScoringService:
             "SK": build_signals_sk(signal.created_at, signal.signal_id),
             "signal_id": signal.signal_id,
             "entity_id": signal.entity_id,
+            "event_id": signal.event_id,
             "score": Decimal(str(signal.score)),
             "components": json.loads(json.dumps(signal.components), parse_float=Decimal),
             "created_at": signal.created_at,
             "direction_score": Decimal(str(signal.direction_score)),
         }
         self._signals_table.put_item(Item=item)
+
+    def _signal_exists(self, event_id: str, entity_id: str) -> bool:
+        response = self._signals_table.query(
+            KeyConditionExpression="PK = :pk",
+            FilterExpression="event_id = :event_id",
+            ExpressionAttributeValues={
+                ":pk": build_signals_pk(entity_id),
+                ":event_id": event_id,
+            },
+            Select="COUNT",
+        )
+        return response.get("Count", 0) > 0
 
     def _emit_signal_event(self, signal: Signal) -> None:
         from signalfft_common.events import SignalScored
@@ -328,6 +357,7 @@ class SignalScoringService:
             trace_id=str(uuid.uuid4()),
             payload={
                 "signal_id": signal.signal_id,
+                "event_id": signal.event_id,
                 "entity_id": signal.entity_id,
                 "score": signal.score,
                 "weight_version": signal.weight_version,
