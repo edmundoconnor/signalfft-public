@@ -4,22 +4,22 @@ variable "environment" {
 
 locals {
   queues = {
-    "raw-events" = {}
-    "features"   = {}
-    "signals"    = {}
-    "waves"      = {}
-    "candidates"       = {}
-    "risk-input"       = {}
-    "outcome-tracking" = {}
-    "filing-fetch"     = {}
-    "filing-ready"     = {}
-    "sections-ready"      = {}
-    "filing-indexer"      = {}
-    "filing-index-ready"  = {}
-    "high-priority"       = {}
-    "triage-input"        = {}
-    "delta-analysis"      = {}
-    "delta-complete"      = {}
+    "raw-events"         = {}
+    "features"           = {}
+    "signals"            = {}
+    "waves"              = {}
+    "candidates"         = {}
+    "risk-input"         = {}
+    "outcome-tracking"   = {}
+    "filing-fetch"       = {}
+    "filing-ready"       = {}
+    "sections-ready"     = {}
+    "filing-indexer"     = {}
+    "filing-index-ready" = {}
+    "high-priority"      = {}
+    "triage-input"       = {}
+    "delta-analysis"     = {}
+    "delta-complete"     = {}
   }
 }
 

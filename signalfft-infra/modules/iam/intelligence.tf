@@ -147,8 +147,8 @@ data "aws_iam_policy_document" "intelligence_allow" {
 data "aws_iam_policy_document" "intelligence_deny" {
   # Explicit deny: trade_candidates and execution_telemetry tables
   statement {
-    effect    = "Deny"
-    actions   = ["dynamodb:*"]
+    effect  = "Deny"
+    actions = ["dynamodb:*"]
     resources = [
       var.table_arns["trade_candidates"],
       var.table_arns["execution_telemetry"],

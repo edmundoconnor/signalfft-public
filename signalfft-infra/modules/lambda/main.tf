@@ -126,10 +126,10 @@ resource "aws_lambda_function" "finnhub_collector" {
 
   environment {
     variables = {
-      ARTIFACT_BUCKET      = var.s3_bucket_name
-      ARTIFACTS_BUCKET     = var.s3_bucket_name
-      EVENTS_TABLE         = var.events_table_name
-      RAW_EVENTS_QUEUE_URL = var.raw_events_queue_url
+      ARTIFACT_BUCKET       = var.s3_bucket_name
+      ARTIFACTS_BUCKET      = var.s3_bucket_name
+      EVENTS_TABLE          = var.events_table_name
+      RAW_EVENTS_QUEUE_URL  = var.raw_events_queue_url
       FINNHUB_API_KEY_PARAM = "/signalfft/${var.environment}/finnhub-api-key"
     }
   }
@@ -169,11 +169,11 @@ resource "aws_lambda_function" "bluesky_collector" {
 
   environment {
     variables = {
-      ARTIFACT_BUCKET      = var.s3_bucket_name
-      ARTIFACTS_BUCKET     = var.s3_bucket_name
-      EVENTS_TABLE         = var.events_table_name
-      RAW_EVENTS_QUEUE_URL = var.raw_events_queue_url
-      BLUESKY_HANDLE       = var.bluesky_handle
+      ARTIFACT_BUCKET            = var.s3_bucket_name
+      ARTIFACTS_BUCKET           = var.s3_bucket_name
+      EVENTS_TABLE               = var.events_table_name
+      RAW_EVENTS_QUEUE_URL       = var.raw_events_queue_url
+      BLUESKY_HANDLE             = var.bluesky_handle
       BLUESKY_APP_PASSWORD_PARAM = "/signalfft/${var.environment}/bluesky-app-password"
     }
   }
@@ -213,12 +213,12 @@ resource "aws_lambda_function" "outcome_collector" {
 
   environment {
     variables = {
-      OUTCOMES_TABLE           = var.outcomes_table_name
-      ENVIRONMENT              = var.environment
-      AWS_REGION_NAME          = "us-east-1"
-      ALPACA_API_KEY_PARAM     = "/signalfft/${var.environment}/alpaca-api-key"
+      OUTCOMES_TABLE          = var.outcomes_table_name
+      ENVIRONMENT             = var.environment
+      AWS_REGION_NAME         = "us-east-1"
+      ALPACA_API_KEY_PARAM    = "/signalfft/${var.environment}/alpaca-api-key"
       ALPACA_SECRET_KEY_PARAM = "/signalfft/${var.environment}/alpaca-secret-key"
-      OUTCOME_SCAN_LIMIT       = "100"
+      OUTCOME_SCAN_LIMIT      = "100"
     }
   }
 

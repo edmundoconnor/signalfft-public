@@ -15,6 +15,7 @@ package-lock.json
 .terraform/
 *.tfplan
 .terraform.lock.hcl
+!signalfft-infra/.terraform.lock.hcl
 .env
 .env.*
 !.env.example

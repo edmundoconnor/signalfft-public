@@ -45,6 +45,10 @@ resource "aws_s3_bucket_lifecycle_configuration" "artifacts" {
     id     = "archive-and-expire"
     status = "Enabled"
 
+    filter {
+      prefix = ""
+    }
+
     transition {
       days          = var.lifecycle_ia_days
       storage_class = "STANDARD_IA"

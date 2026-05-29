@@ -172,21 +172,21 @@ module "dashboard_hosting" {
 module "ecs_services" {
   source = "./modules/ecs_services"
 
-  environment                     = var.environment
-  account_id                      = var.account_id
-  aws_region                      = var.aws_region
-  cluster_id                      = module.ecs_cluster.cluster_id
-  cluster_name                    = module.ecs_cluster.cluster_name
-  public_subnet_ids               = module.vpc.public_subnet_ids
-  ecs_tasks_sg_id                 = module.security_groups.ecs_tasks_sg_id
-  intelligence_role_arn           = module.iam.role_arns["intelligence"]
-  decision_role_arn               = module.iam.role_arns["decision"]
-  execution_role_arn              = module.iam.role_arns["execution"]
-  ecr_repository_urls             = module.ecr.repository_urls
-  queue_urls                      = module.sqs.queue_urls
-  table_names                     = module.dynamodb.table_names
-  s3_bucket_name                  = module.s3.bucket_name
-  dashboard_target_group_arn      = module.alb.target_group_arn
+  environment                    = var.environment
+  account_id                     = var.account_id
+  aws_region                     = var.aws_region
+  cluster_id                     = module.ecs_cluster.cluster_id
+  cluster_name                   = module.ecs_cluster.cluster_name
+  public_subnet_ids              = module.vpc.public_subnet_ids
+  ecs_tasks_sg_id                = module.security_groups.ecs_tasks_sg_id
+  intelligence_role_arn          = module.iam.role_arns["intelligence"]
+  decision_role_arn              = module.iam.role_arns["decision"]
+  execution_role_arn             = module.iam.role_arns["execution"]
+  ecr_repository_urls            = module.ecr.repository_urls
+  queue_urls                     = module.sqs.queue_urls
+  table_names                    = module.dynamodb.table_names
+  s3_bucket_name                 = module.s3.bucket_name
+  dashboard_target_group_arn     = module.alb.target_group_arn
   dashboard_cognito_user_pool_id = var.dashboard_cognito_user_pool_id
   dashboard_cognito_client_id    = var.dashboard_cognito_client_id
   dashboard_allowed_origins      = var.dashboard_allowed_origins
