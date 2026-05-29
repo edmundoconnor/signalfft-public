@@ -16,6 +16,7 @@ from typing import Any
 import requests
 
 from collectors.base import BaseCollector, make_lambda_handler
+from signalfft_common.config import get_secret_env
 
 logger = logging.getLogger(__name__)
 
@@ -29,7 +30,7 @@ class FinnhubNewsCollector(BaseCollector):
 
     def __init__(self):
         super().__init__()
-        self._api_key = os.environ.get("FINNHUB_API_KEY", "")
+        self._api_key = get_secret_env("FINNHUB_API_KEY")
         self._session = requests.Session()
         self._session.headers.update({"Accept": "application/json"})
 

@@ -75,7 +75,7 @@ class FeatureExtractionService:
         )
         return response.get("Messages", [])
 
-    def process_message(self, message: dict) -> None:
+    def process_message(self, message: dict, ack: bool = True) -> bool:
         """Process a single SQS message."""
         receipt_handle = message["ReceiptHandle"]
         try:
@@ -107,23 +107,25 @@ class FeatureExtractionService:
                     triage_features[0], event_id, entity_id, event.trace_id,
                 )
 
-            # Delete message from queue
-            self._sqs.delete_message(
-                QueueUrl=self.input_queue_url,
-                ReceiptHandle=receipt_handle,
-            )
+            if ack:
+                self._sqs.delete_message(
+                    QueueUrl=self.input_queue_url,
+                    ReceiptHandle=receipt_handle,
+                )
 
             logger.info(
                 "Processed event %s: %d features extracted",
                 event_id,
                 len(features),
             )
+            return True
 
         except Exception:
             logger.exception(
                 "Failed to process message %s",
                 message.get("MessageId", "unknown"),
             )
+            return False
 
     def _fetch_artifact(self, s3_uri: str) -> dict:
         """Fetch and parse raw artifact from S3."""

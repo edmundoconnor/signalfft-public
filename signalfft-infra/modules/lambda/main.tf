@@ -18,13 +18,9 @@ variable "raw_events_queue_url" {
   type = string
 }
 
-variable "collector_schedule_rule_arn" {
-  type = string
-}
-
 variable "edgar_user_agent" {
   type    = string
-  default = "SignalFFT edmundoconnor@gmail.com"
+  default = "SignalFFT public-example"
 }
 
 variable "edgar_lookback_days" {
@@ -32,21 +28,11 @@ variable "edgar_lookback_days" {
   default = "3"
 }
 
-variable "finnhub_schedule_rule_arn" {
-  type    = string
-  default = ""
-}
-
-variable "bluesky_schedule_rule_arn" {
-  type    = string
-  default = ""
-}
-
 variable "outcomes_table_name" {
   type = string
 }
 
-variable "outcome_schedule_rule_arn" {
+variable "bluesky_handle" {
   type    = string
   default = ""
 }
@@ -115,21 +101,9 @@ resource "aws_lambda_function" "edgar_collector" {
   }
 }
 
-resource "aws_lambda_permission" "eventbridge" {
-  statement_id  = "eventbridge-${var.environment}"
-  action        = "lambda:InvokeFunction"
-  function_name = aws_lambda_function.edgar_collector.function_name
-  principal     = "events.amazonaws.com"
-  source_arn    = var.collector_schedule_rule_arn
-}
-
 # ---------------------------------------------------------------------------
 # Finnhub News Collector
 # ---------------------------------------------------------------------------
-
-data "aws_ssm_parameter" "finnhub_api_key" {
-  name = "/signalfft/${var.environment}/finnhub-api-key"
-}
 
 resource "aws_cloudwatch_log_group" "finnhub_collector" {
   name              = "/aws/lambda/${var.environment}-signalfft-finnhub-news-collector"
@@ -156,7 +130,7 @@ resource "aws_lambda_function" "finnhub_collector" {
       ARTIFACTS_BUCKET     = var.s3_bucket_name
       EVENTS_TABLE         = var.events_table_name
       RAW_EVENTS_QUEUE_URL = var.raw_events_queue_url
-      FINNHUB_API_KEY      = data.aws_ssm_parameter.finnhub_api_key.value
+      FINNHUB_API_KEY_PARAM = "/signalfft/${var.environment}/finnhub-api-key"
     }
   }
 
@@ -170,21 +144,9 @@ resource "aws_lambda_function" "finnhub_collector" {
   }
 }
 
-resource "aws_lambda_permission" "finnhub_eventbridge" {
-  statement_id  = "eventbridge-finnhub-${var.environment}"
-  action        = "lambda:InvokeFunction"
-  function_name = aws_lambda_function.finnhub_collector.function_name
-  principal     = "events.amazonaws.com"
-  source_arn    = var.finnhub_schedule_rule_arn
-}
-
 # ---------------------------------------------------------------------------
 # Bluesky Social Collector
 # ---------------------------------------------------------------------------
-
-data "aws_ssm_parameter" "bluesky_app_password" {
-  name = "/signalfft/${var.environment}/bluesky-app-password"
-}
 
 resource "aws_cloudwatch_log_group" "bluesky_collector" {
   name              = "/aws/lambda/${var.environment}-signalfft-bluesky-collector"
@@ -211,8 +173,8 @@ resource "aws_lambda_function" "bluesky_collector" {
       ARTIFACTS_BUCKET     = var.s3_bucket_name
       EVENTS_TABLE         = var.events_table_name
       RAW_EVENTS_QUEUE_URL = var.raw_events_queue_url
-      BLUESKY_HANDLE       = "lebeaurulesall.bsky.social"
-      BLUESKY_APP_PASSWORD = data.aws_ssm_parameter.bluesky_app_password.value
+      BLUESKY_HANDLE       = var.bluesky_handle
+      BLUESKY_APP_PASSWORD_PARAM = "/signalfft/${var.environment}/bluesky-app-password"
     }
   }
 
@@ -226,25 +188,9 @@ resource "aws_lambda_function" "bluesky_collector" {
   }
 }
 
-resource "aws_lambda_permission" "bluesky_eventbridge" {
-  statement_id  = "eventbridge-bluesky-${var.environment}"
-  action        = "lambda:InvokeFunction"
-  function_name = aws_lambda_function.bluesky_collector.function_name
-  principal     = "events.amazonaws.com"
-  source_arn    = var.bluesky_schedule_rule_arn
-}
-
 # ---------------------------------------------------------------------------
 # Outcome Price Collector
 # ---------------------------------------------------------------------------
-
-data "aws_ssm_parameter" "alpaca_api_key" {
-  name = "/signalfft/${var.environment}/alpaca-api-key"
-}
-
-data "aws_ssm_parameter" "alpaca_secret_key" {
-  name = "/signalfft/${var.environment}/alpaca-secret-key"
-}
 
 resource "aws_cloudwatch_log_group" "outcome_collector" {
   name              = "/aws/lambda/${var.environment}-signalfft-outcome-collector"
@@ -267,12 +213,12 @@ resource "aws_lambda_function" "outcome_collector" {
 
   environment {
     variables = {
-      OUTCOMES_TABLE     = var.outcomes_table_name
-      ENVIRONMENT        = var.environment
-      AWS_REGION_NAME    = "us-east-1"
-      ALPACA_API_KEY     = data.aws_ssm_parameter.alpaca_api_key.value
-      ALPACA_SECRET_KEY  = data.aws_ssm_parameter.alpaca_secret_key.value
-      OUTCOME_SCAN_LIMIT = "100"
+      OUTCOMES_TABLE           = var.outcomes_table_name
+      ENVIRONMENT              = var.environment
+      AWS_REGION_NAME          = "us-east-1"
+      ALPACA_API_KEY_PARAM     = "/signalfft/${var.environment}/alpaca-api-key"
+      ALPACA_SECRET_KEY_PARAM = "/signalfft/${var.environment}/alpaca-secret-key"
+      OUTCOME_SCAN_LIMIT       = "100"
     }
   }
 
@@ -284,14 +230,6 @@ resource "aws_lambda_function" "outcome_collector" {
     Environment = var.environment
     Project     = "signalfft"
   }
-}
-
-resource "aws_lambda_permission" "outcome_eventbridge" {
-  statement_id  = "eventbridge-outcome-${var.environment}"
-  action        = "lambda:InvokeFunction"
-  function_name = aws_lambda_function.outcome_collector.function_name
-  principal     = "events.amazonaws.com"
-  source_arn    = var.outcome_schedule_rule_arn
 }
 
 # ---------------------------------------------------------------------------

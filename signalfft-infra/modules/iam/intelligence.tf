@@ -114,6 +114,24 @@ data "aws_iam_policy_document" "intelligence_allow" {
     resources = ["*"]
   }
 
+  # SSM: read runtime collector/API secrets by parameter name.
+  statement {
+    effect = "Allow"
+    actions = [
+      "ssm:GetParameter",
+      "ssm:GetParameters",
+    ]
+    resources = [
+      "arn:aws:ssm:*:${var.account_id}:parameter/signalfft/${var.environment}/*",
+    ]
+  }
+
+  statement {
+    effect    = "Allow"
+    actions   = ["kms:Decrypt"]
+    resources = ["*"]
+  }
+
   # CloudWatch Logs
   statement {
     effect = "Allow"

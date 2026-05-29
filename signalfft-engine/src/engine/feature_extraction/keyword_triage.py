@@ -91,6 +91,14 @@ _CATEGORY_PATTERNS: dict[str, re.Pattern] = {
     name: _build_pattern(terms) for name, terms in CATEGORIES.items()
 }
 
+_TERM_TO_CATEGORY: dict[str, str] = {
+    term: category
+    for category, terms in CATEGORIES.items()
+    for term in terms
+}
+
+_ALL_TERMS_PATTERN = _build_pattern(frozenset(_TERM_TO_CATEGORY))
+
 
 # ---------------------------------------------------------------------------
 # Result dataclass
@@ -128,18 +136,18 @@ def triage_filing(text: str) -> TriageResult:
 
     matched_categories: list[str] = []
     matched_terms: list[dict] = []
+    seen_categories: set[str] = set()
 
-    for category, pattern in _CATEGORY_PATTERNS.items():
-        for match in pattern.finditer(text):
-            matched_terms.append({
-                "term": match.group().lower(),
-                "category": category,
-                "position": match.start(),
-            })
-
-        # Check if this category had any matches
-        category_terms = [t for t in matched_terms if t["category"] == category]
-        if category_terms:
+    for match in _ALL_TERMS_PATTERN.finditer(text):
+        term = match.group().lower()
+        category = _TERM_TO_CATEGORY[term]
+        matched_terms.append({
+            "term": term,
+            "category": category,
+            "position": match.start(),
+        })
+        if category not in seen_categories:
+            seen_categories.add(category)
             matched_categories.append(category)
 
     category_count = len(matched_categories)

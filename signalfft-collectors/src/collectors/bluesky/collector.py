@@ -21,6 +21,7 @@ from typing import Any
 import requests
 
 from collectors.base import BaseCollector, make_lambda_handler
+from signalfft_common.config import get_secret_env
 
 logger = logging.getLogger(__name__)
 
@@ -42,7 +43,7 @@ class BlueskyCollector(BaseCollector):
     def __init__(self):
         super().__init__()
         self._handle = os.environ.get("BLUESKY_HANDLE", "")
-        self._app_password = os.environ.get("BLUESKY_APP_PASSWORD", "")
+        self._app_password = get_secret_env("BLUESKY_APP_PASSWORD")
         terms_env = os.environ.get("BLUESKY_SEARCH_TERMS", DEFAULT_SEARCH_TERMS)
         self._search_terms = [t.strip() for t in terms_env.split(",") if t.strip()]
         self._limit = int(os.environ.get("BLUESKY_SEARCH_LIMIT", "30"))

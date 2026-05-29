@@ -75,7 +75,7 @@ class OutcomeTrackingService:
         )
         return response.get("Messages", [])
 
-    def process_message(self, message: dict) -> None:
+    def process_message(self, message: dict, ack: bool = True) -> bool:
         """Process a single SQS message containing a SignalScored event."""
         receipt_handle = message["ReceiptHandle"]
         try:
@@ -93,11 +93,12 @@ class OutcomeTrackingService:
                     "Skipping price capture for %s — Alpaca client not configured",
                     signal_id,
                 )
-                self._sqs.delete_message(
-                    QueueUrl=self.input_queue_url,
-                    ReceiptHandle=receipt_handle,
-                )
-                return
+                if ack:
+                    self._sqs.delete_message(
+                        QueueUrl=self.input_queue_url,
+                        ReceiptHandle=receipt_handle,
+                    )
+                return True
 
             capture_price_snapshot(
                 data_client=self._data_client,
@@ -109,17 +110,20 @@ class OutcomeTrackingService:
                 direction_score=direction_score,
             )
 
-            self._sqs.delete_message(
-                QueueUrl=self.input_queue_url,
-                ReceiptHandle=receipt_handle,
-            )
+            if ack:
+                self._sqs.delete_message(
+                    QueueUrl=self.input_queue_url,
+                    ReceiptHandle=receipt_handle,
+                )
 
             logger.info("Processed signal %s for entity %s", signal_id, entity_id)
+            return True
 
         except Exception:
             logger.exception(
                 "Failed to process message %s", message.get("MessageId", "unknown")
             )
+            return False
 
 
 if __name__ == "__main__":

@@ -101,19 +101,17 @@ module "eventbridge" {
 module "lambda" {
   source = "./modules/lambda"
 
-  environment                 = var.environment
-  intelligence_role_arn       = module.iam.role_arns["intelligence"]
-  s3_bucket_name              = module.s3.bucket_name
-  events_table_name           = module.dynamodb.table_names["events"]
-  raw_events_queue_url        = module.sqs.queue_urls["raw-events"]
-  collector_schedule_rule_arn = module.eventbridge.rule_arns["collector_schedule"]
-  finnhub_schedule_rule_arn   = module.eventbridge.rule_arns["finnhub_schedule"]
-  bluesky_schedule_rule_arn   = module.eventbridge.rule_arns["bluesky_schedule"]
-  outcomes_table_name         = module.dynamodb.table_names["outcomes"]
-  outcome_schedule_rule_arn   = module.eventbridge.rule_arns["outcome_schedule"]
-  filing_fetch_queue_url      = module.sqs.queue_urls["filing-fetch"]
-  filing_ready_queue_url      = module.sqs.queue_urls["filing-ready"]
-  filing_fetch_queue_arn      = module.sqs.queue_arns["filing-fetch"]
+  environment            = var.environment
+  intelligence_role_arn  = module.iam.role_arns["intelligence"]
+  s3_bucket_name         = module.s3.bucket_name
+  events_table_name      = module.dynamodb.table_names["events"]
+  raw_events_queue_url   = module.sqs.queue_urls["raw-events"]
+  outcomes_table_name    = module.dynamodb.table_names["outcomes"]
+  filing_fetch_queue_url = module.sqs.queue_urls["filing-fetch"]
+  filing_ready_queue_url = module.sqs.queue_urls["filing-ready"]
+  filing_fetch_queue_arn = module.sqs.queue_arns["filing-fetch"]
+  edgar_user_agent       = var.edgar_user_agent
+  bluesky_handle         = var.bluesky_handle
 }
 
 # -----------------------------------------------------------------------------
@@ -174,21 +172,25 @@ module "dashboard_hosting" {
 module "ecs_services" {
   source = "./modules/ecs_services"
 
-  environment                = var.environment
-  account_id                 = var.account_id
-  aws_region                 = var.aws_region
-  cluster_id                 = module.ecs_cluster.cluster_id
-  cluster_name               = module.ecs_cluster.cluster_name
-  public_subnet_ids          = module.vpc.public_subnet_ids
-  ecs_tasks_sg_id            = module.security_groups.ecs_tasks_sg_id
-  intelligence_role_arn      = module.iam.role_arns["intelligence"]
-  decision_role_arn          = module.iam.role_arns["decision"]
-  execution_role_arn         = module.iam.role_arns["execution"]
-  ecr_repository_urls        = module.ecr.repository_urls
-  queue_urls                 = module.sqs.queue_urls
-  table_names                = module.dynamodb.table_names
-  s3_bucket_name             = module.s3.bucket_name
-  dashboard_target_group_arn = module.alb.target_group_arn
+  environment                     = var.environment
+  account_id                      = var.account_id
+  aws_region                      = var.aws_region
+  cluster_id                      = module.ecs_cluster.cluster_id
+  cluster_name                    = module.ecs_cluster.cluster_name
+  public_subnet_ids               = module.vpc.public_subnet_ids
+  ecs_tasks_sg_id                 = module.security_groups.ecs_tasks_sg_id
+  intelligence_role_arn           = module.iam.role_arns["intelligence"]
+  decision_role_arn               = module.iam.role_arns["decision"]
+  execution_role_arn              = module.iam.role_arns["execution"]
+  ecr_repository_urls             = module.ecr.repository_urls
+  queue_urls                      = module.sqs.queue_urls
+  table_names                     = module.dynamodb.table_names
+  s3_bucket_name                  = module.s3.bucket_name
+  dashboard_target_group_arn      = module.alb.target_group_arn
+  dashboard_cognito_user_pool_id = var.dashboard_cognito_user_pool_id
+  dashboard_cognito_client_id    = var.dashboard_cognito_client_id
+  dashboard_allowed_origins      = var.dashboard_allowed_origins
+  dashboard_auth_required        = var.dashboard_auth_required
 }
 
 # -----------------------------------------------------------------------------

@@ -16,7 +16,9 @@ from typing import Any
 from urllib.parse import urlparse, parse_qs
 
 import boto3
+import jwt
 from botocore.exceptions import ClientError
+from jwt import PyJWKClient
 
 logger = logging.getLogger(__name__)
 
@@ -33,6 +35,7 @@ class DashboardHandler(BaseHTTPRequestHandler):
     _queues: dict[str, str] = {}
     _cache: dict[str, Any] = {}
     _cache_ts: dict[str, float] = {}
+    _auth: dict[str, Any] = {}
 
     @classmethod
     def init_aws(cls) -> None:
@@ -60,6 +63,35 @@ class DashboardHandler(BaseHTTPRequestHandler):
             "candidates": os.environ.get("CANDIDATES_QUEUE_URL", ""),
             "waves": os.environ.get("WAVES_QUEUE_URL", ""),
             "execution": os.environ.get("EXECUTION_QUEUE_URL", ""),
+        }
+        user_pool_id = os.environ.get("COGNITO_USER_POOL_ID", "")
+        client_id = os.environ.get("COGNITO_CLIENT_ID", "")
+        cognito_region = os.environ.get("COGNITO_REGION", region)
+        auth_required = os.environ.get("DASHBOARD_AUTH_REQUIRED", "true").lower() not in {
+            "0",
+            "false",
+            "no",
+        }
+        allowed_origins = [
+            origin.strip()
+            for origin in os.environ.get(
+                "DASHBOARD_ALLOWED_ORIGINS",
+                os.environ.get("DASHBOARD_ALLOWED_ORIGIN", ""),
+            ).split(",")
+            if origin.strip()
+        ]
+        issuer = (
+            f"https://cognito-idp.{cognito_region}.amazonaws.com/{user_pool_id}"
+            if user_pool_id
+            else ""
+        )
+        cls._auth = {
+            "required": auth_required,
+            "user_pool_id": user_pool_id,
+            "client_id": client_id,
+            "issuer": issuer,
+            "jwks_client": PyJWKClient(f"{issuer}/.well-known/jwks.json") if issuer else None,
+            "allowed_origins": allowed_origins,
         }
 
     # ----- caching helpers -----
@@ -135,6 +167,9 @@ class DashboardHandler(BaseHTTPRequestHandler):
         path = parsed.path
         params = parse_qs(parsed.query)
 
+        if path.startswith("/api/") and not self._authenticate_api_request():
+            return
+
         routes = {
             "/health": lambda: self._respond(200, {"status": "healthy"}),
             "/api/pipeline/status": self._handle_pipeline_status,
@@ -162,6 +197,14 @@ class DashboardHandler(BaseHTTPRequestHandler):
             self._respond(404, {"error": "not found"})
         else:
             self._respond(200, {"service": "signalfft-dashboard"})
+
+    def do_OPTIONS(self) -> None:
+        self.send_response(204)
+        self._send_cors_headers()
+        self.send_header("Access-Control-Allow-Methods", "GET, OPTIONS")
+        self.send_header("Access-Control-Allow-Headers", "Authorization, Content-Type")
+        self.send_header("Access-Control-Max-Age", "300")
+        self.end_headers()
 
     # ----- existing handlers -----
 
@@ -774,10 +817,60 @@ class DashboardHandler(BaseHTTPRequestHandler):
                 depths[name] = -1
         return depths
 
+    def _authenticate_api_request(self) -> bool:
+        """Require a valid Cognito bearer token for dashboard API routes."""
+        if not self._auth.get("required", True):
+            return True
+
+        if not self._auth.get("client_id") or not self._auth.get("jwks_client"):
+            logger.error("Dashboard auth required but Cognito is not configured")
+            self._respond(503, {"error": "dashboard auth is not configured"})
+            return False
+
+        auth_header = self.headers.get("Authorization", "")
+        if not auth_header.startswith("Bearer "):
+            self._respond(401, {"error": "missing bearer token"})
+            return False
+
+        token = auth_header.split(" ", 1)[1].strip()
+        try:
+            self._verify_cognito_token(token)
+            return True
+        except Exception:
+            logger.warning("Rejected dashboard API request with invalid Cognito token", exc_info=True)
+            self._respond(401, {"error": "invalid bearer token"})
+            return False
+
+    def _verify_cognito_token(self, token: str) -> dict[str, Any]:
+        jwks_client = self._auth["jwks_client"]
+        signing_key = jwks_client.get_signing_key_from_jwt(token)
+        claims = jwt.decode(
+            token,
+            signing_key.key,
+            algorithms=["RS256"],
+            issuer=self._auth["issuer"],
+            options={"verify_aud": False},
+        )
+        token_use = claims.get("token_use")
+        if token_use not in {"id", "access"}:
+            raise ValueError("unsupported Cognito token_use")
+
+        token_client_id = claims.get("aud") if token_use == "id" else claims.get("client_id")
+        if token_client_id != self._auth["client_id"]:
+            raise ValueError("Cognito token client mismatch")
+        return claims
+
+    def _send_cors_headers(self) -> None:
+        origin = self.headers.get("Origin", "")
+        allowed_origins = self._auth.get("allowed_origins", [])
+        if origin and origin in allowed_origins:
+            self.send_header("Access-Control-Allow-Origin", origin)
+            self.send_header("Vary", "Origin")
+
     def _respond(self, status: int, body: Any) -> None:
         self.send_response(status)
         self.send_header("Content-Type", "application/json")
-        self.send_header("Access-Control-Allow-Origin", "*")
+        self._send_cors_headers()
         self.end_headers()
         self.wfile.write(json.dumps(body).encode())
 

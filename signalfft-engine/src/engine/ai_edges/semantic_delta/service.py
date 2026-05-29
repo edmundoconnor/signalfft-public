@@ -73,7 +73,7 @@ class SemanticDeltaService:
         )
         self._bucket = os.environ.get("ARTIFACTS_BUCKET", f"{self._env}-signalfft-artifacts")
 
-    def process_message(self, message: dict) -> None:
+    def process_message(self, message: dict) -> bool:
         """Process a single SQS message containing a FilingPairReady event."""
         try:
             event = BaseEvent.from_sqs_message(message["Body"])
@@ -93,7 +93,7 @@ class SemanticDeltaService:
                     "No prior filing for %s/%s/%s — skipping delta analysis",
                     entity_id, form_type, current_filing_date,
                 )
-                return
+                return True
 
             # Skip 8-K (no sequential comparison for event-driven filings)
             target_sections = _TARGET_SECTIONS.get(form_type)
@@ -102,7 +102,7 @@ class SemanticDeltaService:
                     "Form type %s not supported for delta analysis — skipping",
                     form_type,
                 )
-                return
+                return True
 
             # Analyze each target section
             section_results: list[dict] = []
@@ -201,12 +201,14 @@ class SemanticDeltaService:
                 entity_id, form_type, current_filing_date,
                 len(section_results), total_shifts, composite, dominant,
             )
+            return True
 
         except Exception:
             logger.exception(
                 "Failed to process delta analysis message %s",
                 message.get("MessageId", "unknown"),
             )
+            return False
 
     def _load_section_text(self, s3_prefix: str, section_name: str) -> str:
         """Load a section's text from S3."""

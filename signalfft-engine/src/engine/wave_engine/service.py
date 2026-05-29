@@ -71,7 +71,7 @@ class WaveEngineService:
         )
         return response.get("Messages", [])
 
-    def process_message(self, message: dict) -> None:
+    def process_message(self, message: dict, ack: bool = True) -> bool:
         receipt_handle = message["ReceiptHandle"]
         try:
             event = BaseEvent.from_sqs_message(message["Body"])
@@ -108,15 +108,18 @@ class WaveEngineService:
                 except Exception:
                     logger.exception("Graph write failed for wave %s", wave_id)
 
-            self._sqs.delete_message(
-                QueueUrl=self.input_queue_url,
-                ReceiptHandle=receipt_handle,
-            )
+            if ack:
+                self._sqs.delete_message(
+                    QueueUrl=self.input_queue_url,
+                    ReceiptHandle=receipt_handle,
+                )
 
             logger.info("Wave %s recorded for entity %s", wave_id, entity_id)
+            return True
 
         except Exception:
             logger.exception("Failed to process message %s", message.get("MessageId"))
+            return False
 
 
 if __name__ == "__main__":
